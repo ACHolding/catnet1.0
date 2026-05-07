@@ -1,0 +1,1980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CatSim 🐱 — Offline Web Simulator (LM Studio Edition)</title>
+<style>
+/* ============================================================
+   CatSim — offline websim clone powered by LM Studio
+   Aesthetic: Y2K Mac OS 9 meets vaporwave cat cafe
+   ============================================================ */
+
+:root {
+  --bg-deep:        #0d0820;
+  --bg-grid:        #14102e;
+  --bg-panel:       #1d1640;
+  --bg-elevated:    #2a1f5a;
+  --bg-input:       #0f0a23;
+  --accent-pink:    #ff4d8d;
+  --accent-pink-d:  #c4286a;
+  --accent-cyan:    #7df9ff;
+  --accent-cyan-d:  #3ac0c8;
+  --accent-warm:    #ffc857;
+  --accent-mint:    #6dffb4;
+  --text-primary:   #f5e8ff;
+  --text-dim:       #9d88c4;
+  --text-faint:     #6d5b95;
+  --border:         #4a2f7a;
+  --border-bright:  #6b3fae;
+  --error:          #ff5e7e;
+  --shadow-glow:    0 0 24px rgba(255, 77, 141, 0.35);
+  --shadow-soft:    0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: ui-monospace, 'SF Mono', 'Cascadia Mono', 'JetBrains Mono', 'Menlo', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  background-image:
+    radial-gradient(ellipse at 15% 85%, rgba(255, 77, 141, 0.10) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 15%, rgba(125, 249, 255, 0.07) 0%, transparent 55%),
+    linear-gradient(180deg, #0d0820 0%, #14102e 100%);
+}
+
+/* CRT scanline overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 2px,
+    rgba(255, 255, 255, 0.018) 2px,
+    rgba(255, 255, 255, 0.018) 3px
+  );
+  z-index: 9999;
+}
+
+/* Subtle vignette */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.4) 100%);
+  z-index: 9998;
+}
+
+/* ===== HEADER WITH CAT EARS ===== */
+.cat-header {
+  position: relative;
+  background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-elevated) 100%);
+  border-bottom: 2px solid var(--border-bright);
+  padding: 14px 22px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Cat ears poking up */
+.cat-ears {
+  position: absolute;
+  top: -14px;
+  left: 24px;
+  display: flex;
+  gap: 8px;
+}
+.cat-ears .ear {
+  width: 0;
+  height: 0;
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-bottom: 18px solid var(--accent-pink);
+  filter: drop-shadow(0 -2px 6px rgba(255, 77, 141, 0.5));
+}
+.cat-ears .ear::after {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-bottom: 8px solid #ff89b6;
+  position: relative;
+  top: 4px;
+  left: -6px;
+}
+.cat-ears .ear.right { border-bottom-color: var(--accent-cyan); }
+.cat-ears .ear.right::after { border-bottom-color: #b8fcff; }
+
+.logo {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-left: 60px;
+}
+.logo-cat {
+  font-size: 22px;
+  filter: drop-shadow(0 0 8px rgba(255, 77, 141, 0.5));
+  animation: bob 3s ease-in-out infinite;
+}
+@keyframes bob { 50% { transform: translateY(-2px); } }
+.logo-text {
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: 22px;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: -0.5px;
+  background: linear-gradient(90deg, var(--accent-pink), var(--accent-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.logo-tag {
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  padding-left: 4px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.chip-btn {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 6px 12px;
+  font: inherit;
+  font-size: 11px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  letter-spacing: 0.3px;
+}
+.chip-btn:hover {
+  border-color: var(--accent-pink);
+  color: var(--text-primary);
+  box-shadow: 0 0 12px rgba(255, 77, 141, 0.2);
+}
+.chip-btn:active { transform: translateY(1px); }
+.chip-btn .indicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  box-shadow: 0 0 0 0 currentColor;
+}
+.chip-btn .indicator.ok { background: var(--accent-mint); box-shadow: 0 0 8px var(--accent-mint); }
+.chip-btn .indicator.bad { background: var(--error); box-shadow: 0 0 8px var(--error); }
+.chip-btn .indicator.busy {
+  background: var(--accent-warm);
+  animation: pulse 1s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent-warm); }
+  50% { opacity: 0.4; box-shadow: 0 0 2px var(--accent-warm); }
+}
+
+/* ===== URL BAR ===== */
+.url-bar {
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 22px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.nav-btn {
+  width: 30px;
+  height: 30px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.nav-btn:hover:not(:disabled) {
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(125, 249, 255, 0.3);
+}
+.nav-btn:active:not(:disabled) { transform: scale(0.95); }
+.nav-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.url-input-wrap {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  height: 32px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.url-input-wrap:focus-within {
+  border-color: var(--accent-pink);
+  box-shadow: 0 0 0 3px rgba(255, 77, 141, 0.15);
+}
+.url-prefix {
+  color: var(--accent-mint);
+  font-size: 11px;
+  margin-right: 6px;
+  user-select: none;
+}
+.url-prefix::after {
+  content: '//';
+  color: var(--text-faint);
+  margin-left: 2px;
+}
+#url-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font: inherit;
+  outline: none;
+  height: 100%;
+}
+#url-input::placeholder { color: var(--text-faint); }
+
+.go-btn {
+  background: linear-gradient(135deg, var(--accent-pink) 0%, var(--accent-pink-d) 100%);
+  color: white;
+  border: none;
+  padding: 0 16px;
+  height: 32px;
+  font: inherit;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 12px rgba(255, 77, 141, 0.3);
+}
+.go-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(255, 77, 141, 0.45); }
+.go-btn:active { transform: translateY(0); }
+.go-btn.stop {
+  background: linear-gradient(135deg, var(--error), #c44060);
+  box-shadow: 0 2px 12px rgba(255, 94, 126, 0.3);
+}
+
+/* ===== VIEWPORT ===== */
+.viewport {
+  flex: 1;
+  position: relative;
+  background: #faf6ff;
+  margin: 8px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-soft), inset 0 0 0 1px rgba(255,255,255,0.04);
+}
+
+#content-frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: white;
+  display: block;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--bg-panel) 0%, var(--bg-elevated) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  overflow: auto;
+  color: var(--text-primary);
+}
+
+/* Welcome screen */
+.welcome-cat {
+  font-size: 80px;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 0 20px rgba(255, 77, 141, 0.4));
+  animation: idle-bob 4s ease-in-out infinite;
+}
+@keyframes idle-bob {
+  0%, 100% { transform: translateY(0) rotate(-2deg); }
+  50% { transform: translateY(-8px) rotate(2deg); }
+}
+.welcome-title {
+  font-family: 'Times New Roman', Georgia, serif;
+  font-style: italic;
+  font-size: 44px;
+  font-weight: 700;
+  background: linear-gradient(90deg, var(--accent-pink), var(--accent-warm), var(--accent-cyan));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin-bottom: 8px;
+  letter-spacing: -1px;
+}
+.welcome-sub {
+  color: var(--text-dim);
+  font-size: 13px;
+  margin-bottom: 32px;
+  text-align: center;
+  max-width: 520px;
+  line-height: 1.7;
+}
+.welcome-sub kbd {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--accent-cyan);
+}
+
+.welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  width: 100%;
+  max-width: 720px;
+  margin-bottom: 32px;
+}
+.suggestion-card {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: left;
+  font: inherit;
+  color: var(--text-primary);
+}
+.suggestion-card:hover {
+  border-color: var(--accent-pink);
+  background: var(--bg-elevated);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 77, 141, 0.15);
+}
+.suggestion-card .emoji {
+  font-size: 22px;
+  display: block;
+  margin-bottom: 6px;
+}
+.suggestion-card .url {
+  font-size: 12px;
+  color: var(--accent-cyan);
+  word-break: break-all;
+}
+.suggestion-card .desc {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.welcome-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 600px;
+}
+.welcome-status .row { display: flex; align-items: center; gap: 8px; }
+.welcome-status code {
+  background: var(--bg-deep);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--accent-mint);
+  font-family: inherit;
+  font-size: 10px;
+}
+
+/* Loading overlay */
+.loading-cat {
+  font-size: 60px;
+  animation: load-spin 1.4s ease-in-out infinite;
+}
+@keyframes load-spin {
+  0% { transform: rotate(-15deg) scale(1); }
+  50% { transform: rotate(15deg) scale(1.1); }
+  100% { transform: rotate(-15deg) scale(1); }
+}
+.loading-text {
+  font-family: 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 22px;
+  color: var(--text-primary);
+  margin-top: 16px;
+}
+.loading-url {
+  font-size: 12px;
+  color: var(--accent-cyan);
+  margin-top: 6px;
+  max-width: 80%;
+  text-align: center;
+  word-break: break-all;
+}
+.loading-meow {
+  font-size: 11px;
+  color: var(--text-faint);
+  margin-top: 18px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.paw-trail {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+.paw-trail span {
+  font-size: 14px;
+  opacity: 0;
+  animation: paw 1.6s infinite;
+}
+.paw-trail span:nth-child(1) { animation-delay: 0s; }
+.paw-trail span:nth-child(2) { animation-delay: 0.2s; }
+.paw-trail span:nth-child(3) { animation-delay: 0.4s; }
+.paw-trail span:nth-child(4) { animation-delay: 0.6s; }
+.paw-trail span:nth-child(5) { animation-delay: 0.8s; }
+@keyframes paw {
+  0%, 100% { opacity: 0; transform: translateY(0); }
+  50% { opacity: 1; transform: translateY(-4px); }
+}
+
+.stream-preview {
+  max-width: 80%;
+  max-height: 100px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 10px;
+  color: var(--accent-mint);
+  overflow: hidden;
+  white-space: pre-wrap;
+  position: relative;
+  text-align: left;
+  font-family: ui-monospace, monospace;
+}
+.stream-preview::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 30px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.5), transparent);
+}
+
+/* Error overlay */
+.error-cat { font-size: 70px; }
+.error-title {
+  font-family: 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 28px;
+  color: var(--error);
+  margin-top: 8px;
+}
+.error-msg {
+  background: var(--bg-input);
+  border: 1px solid var(--error);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-top: 16px;
+  max-width: 600px;
+  font-size: 12px;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+.error-help {
+  margin-top: 14px;
+  font-size: 11px;
+  color: var(--text-dim);
+  max-width: 600px;
+  line-height: 1.7;
+}
+.error-help ul { padding-left: 20px; margin-top: 6px; }
+.error-help li { margin: 4px 0; }
+.error-help code {
+  background: var(--bg-deep);
+  padding: 1px 5px;
+  border-radius: 3px;
+  color: var(--accent-mint);
+  font-size: 10px;
+}
+
+/* ===== STATUS BAR ===== */
+.status-bar {
+  background: var(--bg-panel);
+  border-top: 1px solid var(--border);
+  padding: 6px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+.status-bar #status-text { color: var(--text-dim); }
+.status-bar #status-meta { display: flex; gap: 14px; }
+.status-bar #status-meta span { display: inline-flex; align-items: center; gap: 4px; }
+
+/* ===== MODALS ===== */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 8, 32, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 40px 20px;
+}
+.modal {
+  background: linear-gradient(180deg, var(--bg-panel), var(--bg-elevated));
+  border: 1px solid var(--border-bright);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  overflow: auto;
+  box-shadow: var(--shadow-soft), 0 0 60px rgba(255, 77, 141, 0.15);
+}
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.modal-title {
+  font-family: 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 18px;
+  color: var(--text-primary);
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-close:hover { background: var(--bg-input); color: var(--text-primary); }
+.modal-body { padding: 20px; }
+
+.field {
+  margin-bottom: 16px;
+}
+.field label {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+}
+.field label .hint { color: var(--text-faint); text-transform: none; letter-spacing: 0; }
+.field input[type="text"], .field input[type="number"], .field select, .field textarea {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.field textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  border-color: var(--accent-pink);
+  box-shadow: 0 0 0 3px rgba(255, 77, 141, 0.12);
+}
+.field-row { display: flex; gap: 10px; }
+.field-row .field { flex: 1; }
+
+.modal-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  align-items: center;
+}
+.modal-actions .left { display: flex; gap: 8px; }
+.modal-actions .right { display: flex; gap: 8px; }
+
+.btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--accent-cyan); }
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-pink), var(--accent-pink-d));
+  border-color: transparent;
+  color: white;
+  font-weight: 600;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255, 77, 141, 0.3); }
+.btn-ghost { background: transparent; }
+.btn-success { background: linear-gradient(135deg, var(--accent-mint), #4adb8a); color: #073d22; font-weight: 600; border-color: transparent; }
+
+.test-result {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  display: none;
+}
+.test-result.ok { background: rgba(109, 255, 180, 0.1); border: 1px solid var(--accent-mint); color: var(--accent-mint); display: block; }
+.test-result.bad { background: rgba(255, 94, 126, 0.1); border: 1px solid var(--error); color: var(--error); display: block; }
+
+/* History/bookmarks list */
+.list { display: flex; flex-direction: column; gap: 4px; max-height: 400px; overflow-y: auto; }
+.list-item {
+  padding: 10px 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.list-item:hover { border-color: var(--accent-pink); background: var(--bg-elevated); }
+.list-item .icon { font-size: 14px; opacity: 0.7; }
+.list-item .content { flex: 1; min-width: 0; }
+.list-item .title { font-size: 12px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.list-item .meta { font-size: 9px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; }
+.list-item .actions { display: flex; gap: 4px; }
+.list-item .actions button {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.list-item .actions button:hover { background: var(--bg-deep); color: var(--accent-pink); }
+.list-empty {
+  padding: 30px 16px;
+  text-align: center;
+  color: var(--text-faint);
+  font-size: 12px;
+  font-style: italic;
+}
+
+.hidden { display: none !important; }
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-deep); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-bright); }
+</style>
+</head>
+<body>
+
+<header class="cat-header">
+  <div class="cat-ears">
+    <span class="ear left"></span>
+    <span class="ear right"></span>
+  </div>
+  <div class="logo">
+    <span class="logo-cat">🐱</span>
+    <span class="logo-text">CatSim</span>
+    <span class="logo-tag">offline · lm studio edition</span>
+  </div>
+  <div class="header-actions">
+    <button class="chip-btn" id="settings-btn">
+      <span class="indicator" id="conn-indicator"></span>
+      <span>LM Studio</span>
+    </button>
+    <button class="chip-btn" id="history-btn">📜 History</button>
+    <button class="chip-btn" id="bookmarks-btn">⭐ Bookmarks</button>
+    <button class="chip-btn" id="bookmark-add" title="Bookmark current page">＋</button>
+  </div>
+</header>
+
+<div class="url-bar">
+  <button class="nav-btn" id="back-btn" title="Back" disabled>←</button>
+  <button class="nav-btn" id="forward-btn" title="Forward" disabled>→</button>
+  <button class="nav-btn" id="refresh-btn" title="Refresh / regenerate" disabled>↻</button>
+  <button class="nav-btn" id="home-btn" title="Home">⌂</button>
+  <div class="url-input-wrap">
+    <span class="url-prefix">https:</span>
+    <input type="text" id="url-input" placeholder="type any url... e.g. cats.com/secret-society" autocomplete="off" spellcheck="false" />
+  </div>
+  <button class="go-btn" id="go-btn">Pounce →</button>
+</div>
+
+<main class="viewport">
+  <iframe id="content-frame" sandbox="allow-scripts allow-forms allow-popups"></iframe>
+
+  <!-- Welcome overlay -->
+  <div class="overlay" id="welcome-overlay">
+    <div class="welcome-cat">😺</div>
+    <h1 class="welcome-title">welcome to CatSim</h1>
+    <p class="welcome-sub">
+      An offline web simulator powered by your <strong style="color:var(--accent-cyan)">local LM Studio</strong>.<br>
+      Type any URL above and watch the cat dream a webpage into existence.<br>
+      <span style="opacity:0.6">Press <kbd>Enter</kbd> to navigate · click links inside pages to follow them</span>
+    </p>
+
+    <div class="welcome-grid">
+      <button class="suggestion-card" data-url="cats.com/secret-society">
+        <span class="emoji">🐈‍⬛</span>
+        <div class="url">cats.com/secret-society</div>
+        <div class="desc">a forbidden gathering</div>
+      </button>
+      <button class="suggestion-card" data-url="time-museum.net/year/3024">
+        <span class="emoji">⏳</span>
+        <div class="url">time-museum.net/year/3024</div>
+        <div class="desc">artifacts of the future</div>
+      </button>
+      <button class="suggestion-card" data-url="moonbase-alpha.gov/jobs">
+        <span class="emoji">🌙</span>
+        <div class="url">moonbase-alpha.gov/jobs</div>
+        <div class="desc">careers off-world</div>
+      </button>
+      <button class="suggestion-card" data-url="pixelpets.com/adopt">
+        <span class="emoji">🐾</span>
+        <div class="url">pixelpets.com/adopt</div>
+        <div class="desc">a Y2K virtual pet site</div>
+      </button>
+      <button class="suggestion-card" data-url="lostmedia.wiki/the-tape">
+        <span class="emoji">📼</span>
+        <div class="url">lostmedia.wiki/the-tape</div>
+        <div class="desc">a haunted recording</div>
+      </button>
+      <button class="suggestion-card" data-url="oracle.dev/ask">
+        <span class="emoji">🔮</span>
+        <div class="url">oracle.dev/ask</div>
+        <div class="desc">the answer engine</div>
+      </button>
+    </div>
+
+    <div class="welcome-status">
+      <div class="row">
+        <span>📡 Status:</span>
+        <span id="welcome-conn-status" style="color:var(--text-faint)">checking LM Studio…</span>
+      </div>
+      <div style="font-size: 10px; opacity: 0.75; line-height: 1.7;">
+        <strong style="color:var(--accent-cyan)">Recommended setup:</strong> run <code>python3 catserver.py</code> in this folder, then open <code>http://localhost:8765/</code> — same-origin, zero CORS hassle.<br>
+        <span style="opacity:0.7">Or open this file directly and enable CORS in LM Studio (Developer → Settings → Enable CORS). Less reliable. ฅ^•ﻌ•^ฅ</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading overlay -->
+  <div class="overlay hidden" id="loading-overlay">
+    <div class="loading-cat" id="loading-cat-emoji">😸</div>
+    <div class="loading-text">dreaming up a page…</div>
+    <div class="loading-url" id="loading-url"></div>
+    <div class="paw-trail">
+      <span>🐾</span><span>🐾</span><span>🐾</span><span>🐾</span><span>🐾</span>
+    </div>
+    <div class="loading-meow" id="loading-meow">meow… meow… meow…</div>
+    <div class="stream-preview" id="stream-preview" style="display:none"></div>
+  </div>
+
+  <!-- Error overlay -->
+  <div class="overlay hidden" id="error-overlay">
+    <div class="error-cat">🙀</div>
+    <h2 class="error-title" id="error-title">something hissed at us</h2>
+    <div class="error-msg" id="error-msg"></div>
+    <div class="error-help" id="error-help"></div>
+    <div style="margin-top: 18px; display:flex; gap: 8px;">
+      <button class="btn" id="error-settings">Open Settings</button>
+      <button class="btn btn-primary" id="error-retry">Try Again</button>
+    </div>
+  </div>
+</main>
+
+<footer class="status-bar">
+  <span id="status-text">😺 Ready to pounce</span>
+  <span id="status-meta">
+    <span id="cache-meta">0 cached</span>
+    <span id="model-meta">no model</span>
+  </span>
+</footer>
+
+<!-- Settings modal -->
+<div class="modal-backdrop hidden" id="settings-modal">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title">⚙️ LM Studio Configuration</span>
+      <button class="modal-close" data-close>×</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Endpoint URL <span class="hint">(LM Studio's local server base)</span></label>
+        <input type="text" id="cfg-endpoint" placeholder="http://localhost:1234/v1" />
+      </div>
+      <div class="field">
+        <label>Model <span class="hint">(loaded in LM Studio — click Test to fetch list)</span></label>
+        <select id="cfg-model"><option value="">— test connection first —</option></select>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label>Temperature</label>
+          <input type="number" id="cfg-temp" step="0.05" min="0" max="2" value="0.85" />
+        </div>
+        <div class="field">
+          <label>Max tokens</label>
+          <input type="number" id="cfg-max" step="100" min="100" max="32000" value="4000" />
+        </div>
+      </div>
+      <div class="field">
+        <label>System prompt <span class="hint">(how the model should generate pages)</span></label>
+        <textarea id="cfg-sysprompt"></textarea>
+      </div>
+      <button class="btn" id="cfg-test">🔌 Test Connection</button>
+      <div class="test-result" id="cfg-test-result"></div>
+    </div>
+    <div class="modal-actions">
+      <div class="left">
+        <button class="btn btn-ghost" id="cfg-reset">Reset Defaults</button>
+        <button class="btn btn-ghost" id="cfg-clear-cache">Clear Page Cache</button>
+      </div>
+      <div class="right">
+        <button class="btn" data-close>Cancel</button>
+        <button class="btn btn-primary" id="cfg-save">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- History modal -->
+<div class="modal-backdrop hidden" id="history-modal">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title">📜 Browsing History</span>
+      <button class="modal-close" data-close>×</button>
+    </div>
+    <div class="modal-body">
+      <div class="list" id="history-list"></div>
+    </div>
+    <div class="modal-actions">
+      <div class="left"><button class="btn btn-ghost" id="history-clear">Clear All</button></div>
+      <div class="right"><button class="btn" data-close>Close</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bookmarks modal -->
+<div class="modal-backdrop hidden" id="bookmarks-modal">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title">⭐ Bookmarks</span>
+      <button class="modal-close" data-close>×</button>
+    </div>
+    <div class="modal-body">
+      <div class="list" id="bookmarks-list"></div>
+    </div>
+    <div class="modal-actions">
+      <div class="left"></div>
+      <div class="right"><button class="btn" data-close>Close</button></div>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* ============================================================
+   STATE
+   ============================================================ */
+
+const DEFAULT_SYSPROMPT = `You are CatSim, an offline AI web simulator. The user types URLs and you generate the imaginary webpage that lives at that URL — like a dream version of the internet.
+
+RULES:
+- Output ONLY raw HTML, starting with <!DOCTYPE html>
+- NEVER use markdown code fences (no triple-backticks)
+- Embed all CSS in <style> tags inside <head>
+- Embed any JavaScript in <script> tags
+- Make the page rich, plausible, and creative — fitting whatever the URL implies
+- Vary the visual design dramatically between pages — don't have a "house style"
+- Include working <a href="..."> links to other plausible pages on the same imagined site so the user can explore
+- Forms can have action="..." attributes (they'll generate result pages on submit)
+- Be imaginative, weird, specific, characterful — this is a fictional alternate web
+- Keep pages self-contained (no external resources, no images that need loading — use CSS art, emoji, SVG, or text)
+- Aim for ~200-500 lines of HTML for a satisfying page`;
+
+/**
+ * If catsim is served by catserver.py (http://localhost:PORT/catsim.html),
+ * the proxy handles CORS and forwards /lm/* to LM Studio. Same-origin = bliss.
+ * Otherwise (file:// or other origin), we hit LM Studio directly and PRAY CORS works.
+ */
+function detectDefaultEndpoint() {
+  const proto = location.protocol;
+  if (proto === 'http:' || proto === 'https:') {
+    return `${proto}//${location.host}/lm/v1`;
+  }
+  return 'http://localhost:1234/v1';
+}
+
+function isProxyMode() {
+  return /^https?:/.test(location.protocol);
+}
+
+const DEFAULTS = {
+  endpoint: detectDefaultEndpoint(),
+  model: '',
+  temperature: 0.85,
+  maxTokens: 4000,
+  systemPrompt: DEFAULT_SYSPROMPT
+};
+
+const state = {
+  settings: { ...DEFAULTS },
+  history: [],          // [{url, title, ts}]
+  historyIndex: -1,
+  bookmarks: [],        // [{url, title, ts}]
+  pageCache: {},        // url -> html
+  isGenerating: false,
+  abortController: null,
+  connectionStatus: 'unknown' // unknown | ok | bad | busy
+};
+
+/* ============================================================
+   PERSISTENCE
+   ============================================================ */
+
+const STORAGE_KEY = 'catsim-v1';
+
+function loadFromDisk() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.settings) Object.assign(state.settings, data.settings);
+    if (Array.isArray(data.bookmarks)) state.bookmarks = data.bookmarks;
+    if (Array.isArray(data.history)) state.history = data.history.slice(-50);
+    // Don't restore historyIndex — start fresh
+    state.historyIndex = -1;
+  } catch (e) { console.warn('load failed', e); }
+}
+
+function saveToDisk() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      settings: state.settings,
+      bookmarks: state.bookmarks,
+      history: state.history.slice(-50)
+    }));
+  } catch (e) { console.warn('save failed', e); }
+}
+
+/* ============================================================
+   LM STUDIO API CLIENT
+   ============================================================ */
+
+async function fetchModels() {
+  const url = `${state.settings.endpoint.replace(/\/$/, '')}/models`;
+  const r = await fetch(url, { method: 'GET' });
+  if (!r.ok) throw new Error(`HTTP ${r.status} from ${url}`);
+  const data = await r.json();
+  return (data.data || []).map(m => m.id || m.name).filter(Boolean);
+}
+
+async function* streamCompletion(messages, opts = {}) {
+  const ctrl = new AbortController();
+  state.abortController = ctrl;
+  const url = `${state.settings.endpoint.replace(/\/$/, '')}/chat/completions`;
+
+  const body = {
+    model: state.settings.model || 'local-model',
+    messages,
+    temperature: opts.temperature ?? state.settings.temperature,
+    max_tokens: opts.maxTokens ?? state.settings.maxTokens,
+    stream: true
+  };
+
+  let r;
+  try {
+    // CRITICAL: Use text/plain instead of application/json.
+    // application/json triggers a CORS preflight (OPTIONS request) which
+    // LM Studio's server mishandles — it tries to parse the empty OPTIONS body
+    // as a chat request and errors with "'messages' field is required".
+    // With text/plain the request is a "simple request" — no preflight needed,
+    // POST goes directly through. LM Studio's body parser still reads the JSON.
+    console.log('[catsim] POST', url, 'model:', body.model, 'msgs:', messages.length);
+    r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal
+    });
+    console.log('[catsim] response', r.status, r.statusText);
+  } catch (err) {
+    if (err.name === 'AbortError') return;
+    console.error('[catsim] fetch failed:', err);
+    // "Failed to fetch" with no preflight means LM Studio rejected the response
+    // (no Access-Control-Allow-Origin header) — i.e. CORS is OFF in LM Studio.
+    throw new Error(`CORS_BLOCKED: ${err.message}. LM Studio is rejecting the response. You MUST enable CORS in LM Studio: Developer tab (left sidebar) → Settings (gear icon at top of dev panel) → toggle "Enable CORS" ON → restart the Local Server (toggle Status off then on).`);
+  }
+
+  if (!r.ok) {
+    const text = await r.text().catch(() => '');
+    throw new Error(`HTTP ${r.status}: ${text.slice(0, 300)}`);
+  }
+
+  const reader = r.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  while (true) {
+    let chunk;
+    try { chunk = await reader.read(); }
+    catch (err) {
+      if (err.name === 'AbortError') return;
+      throw err;
+    }
+    if (chunk.done) break;
+    buffer += decoder.decode(chunk.value, { stream: true });
+
+    const lines = buffer.split('\n');
+    buffer = lines.pop();
+    for (const line of lines) {
+      const t = line.trim();
+      if (!t.startsWith('data:')) continue;
+      const payload = t.slice(5).trim();
+      if (payload === '[DONE]') return;
+      try {
+        const parsed = JSON.parse(payload);
+        const delta = parsed.choices?.[0]?.delta?.content;
+        if (delta) yield delta;
+      } catch (_) { /* malformed line, ignore */ }
+    }
+  }
+}
+
+/* ============================================================
+   PAGE GENERATION
+   ============================================================ */
+
+function buildMessages(url, fromUrl) {
+  const sys = state.settings.systemPrompt || DEFAULT_SYSPROMPT;
+  let userMsg = `Generate the webpage at this URL: https://${url}`;
+  if (fromUrl) {
+    userMsg += `\n\nThe user navigated here by clicking a link from: https://${fromUrl}`;
+    userMsg += `\nMake the page feel like a believable continuation of that journey, while still being its own thing.`;
+  }
+  return [
+    { role: 'system', content: sys },
+    { role: 'user', content: userMsg }
+  ];
+}
+
+function cleanHtml(raw) {
+  let html = raw.trim();
+  // Strip markdown fences if the model added them despite instructions
+  html = html.replace(/^```(?:html)?\s*\n?/i, '');
+  html = html.replace(/\n?```\s*$/, '');
+  html = html.trim();
+
+  // If model returned just a fragment, wrap it
+  if (!/^<!doctype/i.test(html) && !/^<html/i.test(html)) {
+    html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>generated</title></head><body>${html}</body></html>`;
+  }
+  return html;
+}
+
+function injectInterceptor(html) {
+  const script = `
+<script>
+(function() {
+  // Intercept all link clicks → bubble up to parent for re-generation
+  document.addEventListener('click', function(e) {
+    var a = e.target.closest && e.target.closest('a[href]');
+    if (!a) return;
+    var href = a.getAttribute('href');
+    if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    window.parent.postMessage({ type: 'catsim:navigate', href: href, text: a.textContent.trim().slice(0, 80) }, '*');
+  }, true);
+  // Intercept form submissions → encode as a query string in the URL
+  document.addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = e.target;
+    var action = form.getAttribute('action') || '';
+    var fd = new FormData(form);
+    var params = new URLSearchParams();
+    fd.forEach(function(v, k){ params.append(k, typeof v === 'string' ? v : '[file]'); });
+    var qs = params.toString();
+    var url = action || '#submitted';
+    if (qs) url += (url.indexOf('?') >= 0 ? '&' : '?') + qs;
+    window.parent.postMessage({ type: 'catsim:navigate', href: url, text: 'form submission' }, '*');
+  }, true);
+})();
+<\/script>
+`;
+  if (/<\/body>/i.test(html)) {
+    return html.replace(/<\/body>/i, script + '</body>');
+  }
+  return html + script;
+}
+
+function extractTitle(html) {
+  const m = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+  if (m) return m[1].trim().slice(0, 80);
+  const h = html.match(/<h1[^>]*>([^<]+)<\/h1>/i);
+  if (h) return h[1].replace(/<[^>]+>/g, '').trim().slice(0, 80);
+  return null;
+}
+
+async function generatePage(url, fromUrl, useCache = true) {
+  if (useCache && state.pageCache[url]) {
+    return state.pageCache[url];
+  }
+  const messages = buildMessages(url, fromUrl);
+  let html = '';
+  setStreamPreview('');
+  for await (const chunk of streamCompletion(messages)) {
+    html += chunk;
+    setStreamPreview(html.slice(-400));
+  }
+  if (!html) throw new Error('Model returned no content. Check that a model is loaded in LM Studio.');
+  html = cleanHtml(html);
+  state.pageCache[url] = html;
+  updateCacheMeta();
+  return html;
+}
+
+/* ============================================================
+   URL RESOLUTION
+   ============================================================ */
+
+function normalizeUrl(input) {
+  if (!input) return '';
+  let url = input.trim();
+  url = url.replace(/^https?:\/\//i, '');
+  url = url.replace(/^\/+/, '');
+  return url;
+}
+
+function resolveLink(href, base) {
+  href = href.trim();
+  // absolute URL
+  if (/^https?:\/\//i.test(href)) {
+    return href.replace(/^https?:\/\//i, '');
+  }
+  if (!base) return normalizeUrl(href);
+
+  // Strip query/hash from base for path resolution
+  const baseClean = base.split('#')[0];
+  const baseHost = baseClean.split('/')[0];
+  const basePath = baseClean.split('/').slice(1).join('/');
+
+  if (href.startsWith('//')) {
+    return href.slice(2);
+  }
+  if (href.startsWith('/')) {
+    return baseHost + href;
+  }
+  if (href.startsWith('?') || href.startsWith('#')) {
+    return baseClean.split('?')[0].split('#')[0] + href;
+  }
+  // relative path — drop last segment of basePath
+  const parts = basePath.split('/');
+  parts.pop();
+  parts.push(href);
+  const combined = parts.filter(Boolean).join('/');
+  return baseHost + (combined ? '/' + combined : '');
+}
+
+/* ============================================================
+   NAVIGATION
+   ============================================================ */
+
+async function navigate(rawUrl, opts = {}) {
+  const url = normalizeUrl(rawUrl);
+  if (!url) return;
+
+  // Cancel any in-flight generation
+  if (state.abortController) {
+    state.abortController.abort();
+    state.abortController = null;
+  }
+
+  const fromUrl = state.historyIndex >= 0 ? state.history[state.historyIndex]?.url : null;
+
+  document.getElementById('url-input').value = url;
+  showLoading(url);
+  setGenerating(true);
+
+  try {
+    const html = await generatePage(url, fromUrl, opts.useCache !== false);
+    if (!html) throw new Error('Empty response');
+
+    const title = extractTitle(html) || url;
+    const injected = injectInterceptor(html);
+
+    const iframe = document.getElementById('content-frame');
+    iframe.srcdoc = injected;
+
+    if (opts.addToHistory !== false) {
+      // Truncate forward history when navigating from middle
+      state.history = state.history.slice(0, state.historyIndex + 1);
+      // Avoid duplicate adjacent entries
+      const prev = state.history[state.history.length - 1];
+      if (!prev || prev.url !== url) {
+        state.history.push({ url, title, ts: Date.now() });
+        state.historyIndex = state.history.length - 1;
+      }
+    } else if (opts.replaceCurrent && state.historyIndex >= 0) {
+      state.history[state.historyIndex] = { url, title, ts: Date.now() };
+    }
+
+    updateNavButtons();
+    setStatus(`😻 ${title}`);
+    saveToDisk();
+    hideOverlays();
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      setStatus('🙊 cancelled');
+    } else {
+      showError(err);
+    }
+  } finally {
+    setGenerating(false);
+  }
+}
+
+function goBack() {
+  if (state.historyIndex <= 0) return;
+  state.historyIndex--;
+  const entry = state.history[state.historyIndex];
+  document.getElementById('url-input').value = entry.url;
+  // Render from cache (should always be cached)
+  const html = state.pageCache[entry.url];
+  if (html) {
+    document.getElementById('content-frame').srcdoc = injectInterceptor(html);
+    setStatus(`◀ ${entry.title}`);
+    hideOverlays();
+  } else {
+    // Re-generate without adding to history
+    navigate(entry.url, { addToHistory: false });
+  }
+  updateNavButtons();
+}
+
+function goForward() {
+  if (state.historyIndex >= state.history.length - 1) return;
+  state.historyIndex++;
+  const entry = state.history[state.historyIndex];
+  document.getElementById('url-input').value = entry.url;
+  const html = state.pageCache[entry.url];
+  if (html) {
+    document.getElementById('content-frame').srcdoc = injectInterceptor(html);
+    setStatus(`▶ ${entry.title}`);
+    hideOverlays();
+  } else {
+    navigate(entry.url, { addToHistory: false });
+  }
+  updateNavButtons();
+}
+
+function refresh() {
+  if (state.historyIndex < 0) return;
+  const entry = state.history[state.historyIndex];
+  delete state.pageCache[entry.url];
+  navigate(entry.url, { addToHistory: false, replaceCurrent: true, useCache: false });
+}
+
+function goHome() {
+  if (state.abortController) state.abortController.abort();
+  document.getElementById('url-input').value = '';
+  document.getElementById('content-frame').srcdoc = '';
+  document.getElementById('welcome-overlay').classList.remove('hidden');
+  document.getElementById('loading-overlay').classList.add('hidden');
+  document.getElementById('error-overlay').classList.add('hidden');
+  setStatus('😺 home');
+}
+
+function updateNavButtons() {
+  document.getElementById('back-btn').disabled = state.historyIndex <= 0;
+  document.getElementById('forward-btn').disabled = state.historyIndex >= state.history.length - 1;
+  document.getElementById('refresh-btn').disabled = state.historyIndex < 0;
+}
+
+/* ============================================================
+   UI: STATUS / OVERLAYS
+   ============================================================ */
+
+function setStatus(text) {
+  document.getElementById('status-text').textContent = text;
+}
+
+function setStreamPreview(text) {
+  const el = document.getElementById('stream-preview');
+  if (!text) { el.style.display = 'none'; el.textContent = ''; return; }
+  el.style.display = 'block';
+  el.textContent = text;
+  el.scrollTop = el.scrollHeight;
+}
+
+const MEOW_PHRASES = [
+  'meow… meow… meow…',
+  'kneading the dough…',
+  'chasing the cursor…',
+  'consulting the box…',
+  'sharpening claws on the DOM…',
+  'purring through tokens…',
+  'batting around bytes…',
+  'staring at a wall for 0.4 seconds…',
+  'considering a nap…',
+  'judging your URL choice…'
+];
+
+let meowInterval = null;
+function showLoading(url) {
+  hideOverlays();
+  document.getElementById('loading-overlay').classList.remove('hidden');
+  document.getElementById('loading-url').textContent = `https://${url}`;
+  setStatus(`🐾 generating ${url}…`);
+  if (meowInterval) clearInterval(meowInterval);
+  let i = 0;
+  document.getElementById('loading-meow').textContent = MEOW_PHRASES[0];
+  meowInterval = setInterval(() => {
+    i = (i + 1) % MEOW_PHRASES.length;
+    document.getElementById('loading-meow').textContent = MEOW_PHRASES[i];
+  }, 2200);
+}
+
+function hideOverlays() {
+  document.getElementById('welcome-overlay').classList.add('hidden');
+  document.getElementById('loading-overlay').classList.add('hidden');
+  document.getElementById('error-overlay').classList.add('hidden');
+  if (meowInterval) { clearInterval(meowInterval); meowInterval = null; }
+  setStreamPreview('');
+}
+
+function showError(err) {
+  hideOverlays();
+  document.getElementById('error-overlay').classList.remove('hidden');
+  const msg = (err && err.message) ? err.message : String(err);
+  document.getElementById('error-msg').textContent = msg;
+
+  const inProxyMode = isProxyMode();
+  let helpHtml = '';
+
+  if (/CORS_BLOCKED|Failed to fetch|NetworkError/i.test(msg)) {
+    if (inProxyMode) {
+      helpHtml = `
+        <strong style="color:var(--accent-warm); font-size:13px;">⚠ The catsim proxy can't reach LM Studio.</strong>
+        <p style="margin: 8px 0; font-size:11px;">You're running in <strong>proxy mode</strong>, so CORS isn't the problem — the proxy itself can't talk to LM Studio. Check that:</p>
+        <ul style="margin:8px 0 0 22px; padding:0; font-size:11px; line-height:1.8;">
+          <li>LM Studio is open and the <strong>Local Server</strong> is started (Developer panel → Status: Running)</li>
+          <li>A model is loaded in LM Studio (top bar)</li>
+          <li>The proxy is pointed at the right LM Studio port (default <code>1234</code>) — edit <code>LM_STUDIO_HOST</code> in <code>catserver.py</code> if different</li>
+        </ul>`;
+    } else {
+      helpHtml = `
+        <strong style="color:var(--accent-warm); font-size:13px;">⚠ CORS is blocking the request.</strong>
+        <p style="margin: 8px 0; font-size:11px;">You're loading catsim from <code>file://</code> and LM Studio's CORS handling is unreliable for this. <strong>The fix is to use the included Python proxy</strong> — it makes catsim and LM Studio same-origin so CORS never engages.</p>
+        <div style="background:var(--bg-deep); border-radius:8px; padding:12px; margin-top:10px;">
+          <strong style="color:var(--accent-cyan); font-size:11px;">RECOMMENDED — use the proxy (works 100% of the time):</strong>
+          <ol style="margin:8px 0 0 22px; padding:0; font-size:11px; line-height:1.8;">
+            <li>Make sure <code>catserver.py</code> is in the same folder as <code>catsim.html</code></li>
+            <li>Open Terminal in that folder, run: <code style="color:var(--accent-mint)">python3 catserver.py</code></li>
+            <li>Open <code style="color:var(--accent-cyan)">http://localhost:8765/</code> in your browser</li>
+            <li>Done — catsim auto-detects proxy mode and works without any LM Studio config</li>
+          </ol>
+        </div>
+        <details style="margin-top:10px; font-size:11px;">
+          <summary style="cursor:pointer; color:var(--text-dim);">…or fight LM Studio's CORS toggle (less reliable)</summary>
+          <ol style="margin:8px 0 0 22px; padding:0; line-height:1.8;">
+            <li>LM Studio → <strong>Developer</strong> tab (left sidebar)</li>
+            <li>Top of dev panel → <strong>Settings</strong></li>
+            <li>Toggle <strong>"Enable CORS"</strong> ON</li>
+            <li>Toggle Status: Running OFF then ON</li>
+            <li>Hard-reload this page: <kbd style="background:var(--bg-elevated);padding:2px 6px;border-radius:3px">⌘⇧R</kbd> / <kbd style="background:var(--bg-elevated);padding:2px 6px;border-radius:3px">Ctrl+Shift+R</kbd></li>
+          </ol>
+          <p style="margin-top:6px; opacity:0.7;">This often fails when loading from <code>file://</code> because LM Studio rejects <code>Origin: null</code>. The proxy avoids the issue.</p>
+        </details>
+        <p style="margin-top:10px; font-size:10px; opacity:0.7;">
+          DevTools console (F12) shows detailed <code>[catsim]</code> logs.<br>
+          File version: <code>catsim 1.2 — proxy-first</code>
+        </p>`;
+    }
+  } else if (/HTTP 4\d\d/.test(msg)) {
+    helpHtml = `<strong>Bad request from LM Studio.</strong> The model name may be wrong — open Settings, click <code>Test Connection</code>, pick a loaded model.`;
+  } else if (/HTTP 5\d\d/.test(msg)) {
+    helpHtml = `<strong>LM Studio internal error.</strong> Check the LM Studio server logs (Developer panel) — the model may have crashed or run out of memory.`;
+  } else if (/no content|empty/i.test(msg)) {
+    helpHtml = `<strong>Empty response.</strong> Make sure a model is loaded in LM Studio (top bar → select model → Load).`;
+  } else {
+    helpHtml = `<strong>Unexpected error.</strong> Check the browser console (F12) for <code>[catsim]</code> logs.`;
+  }
+
+  document.getElementById('error-help').innerHTML = helpHtml;
+  setStatus('🙀 error');
+}
+
+function setGenerating(busy) {
+  state.isGenerating = busy;
+  const goBtn = document.getElementById('go-btn');
+  if (busy) {
+    goBtn.textContent = '✕ Stop';
+    goBtn.classList.add('stop');
+    setConnIndicator('busy');
+  } else {
+    goBtn.textContent = 'Pounce →';
+    goBtn.classList.remove('stop');
+    if (state.connectionStatus === 'busy') setConnIndicator('ok');
+  }
+}
+
+function setConnIndicator(status) {
+  state.connectionStatus = status;
+  const ind = document.getElementById('conn-indicator');
+  ind.classList.remove('ok', 'bad', 'busy');
+  if (status === 'ok') ind.classList.add('ok');
+  else if (status === 'bad') ind.classList.add('bad');
+  else if (status === 'busy') ind.classList.add('busy');
+
+  const w = document.getElementById('welcome-conn-status');
+  if (w) {
+    if (status === 'ok') {
+      w.textContent = `connected · ${state.settings.model || 'model loaded'}`;
+      w.style.color = 'var(--accent-mint)';
+    } else if (status === 'bad') {
+      w.textContent = 'not reachable — check LM Studio settings';
+      w.style.color = 'var(--error)';
+    } else {
+      w.textContent = 'checking LM Studio…';
+      w.style.color = 'var(--text-faint)';
+    }
+  }
+}
+
+function updateCacheMeta() {
+  const n = Object.keys(state.pageCache).length;
+  document.getElementById('cache-meta').textContent = `${n} cached`;
+  document.getElementById('model-meta').textContent = state.settings.model || 'no model';
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+
+function openModal(id) {
+  document.getElementById(id).classList.remove('hidden');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+}
+
+function openSettings() {
+  document.getElementById('cfg-endpoint').value = state.settings.endpoint;
+  document.getElementById('cfg-temp').value = state.settings.temperature;
+  document.getElementById('cfg-max').value = state.settings.maxTokens;
+  document.getElementById('cfg-sysprompt').value = state.settings.systemPrompt;
+  populateModelSelect([state.settings.model].filter(Boolean), state.settings.model);
+  document.getElementById('cfg-test-result').className = 'test-result';
+  document.getElementById('cfg-test-result').textContent = '';
+  openModal('settings-modal');
+}
+
+function populateModelSelect(models, selected) {
+  const sel = document.getElementById('cfg-model');
+  sel.innerHTML = '';
+  if (models.length === 0) {
+    sel.innerHTML = '<option value="">— test connection first —</option>';
+    return;
+  }
+  for (const m of models) {
+    const opt = document.createElement('option');
+    opt.value = m;
+    opt.textContent = m;
+    if (m === selected) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+/**
+ * Two-phase diagnostic:
+ *   Phase 1: no-cors fetch — does NOT error on CORS, only errors if server unreachable.
+ *            Returns opaque response if server is up. This distinguishes "down" from "blocked".
+ *   Phase 2: real fetch — if this fails after phase 1 succeeded, CORS is the culprit.
+ */
+async function diagnoseEndpoint(endpoint) {
+  const cleanEp = endpoint.replace(/\/$/, '');
+  const out = { endpoint: cleanEp };
+
+  // Phase 1: reachability
+  try {
+    await fetch(`${cleanEp}/models`, { mode: 'no-cors', cache: 'no-store' });
+    out.reachable = true;
+  } catch (e) {
+    out.reachable = false;
+    out.reachError = e.message;
+    return out;
+  }
+
+  // Phase 2: CORS check
+  try {
+    const r = await fetch(`${cleanEp}/models`, { cache: 'no-store' });
+    out.corsOk = true;
+    if (!r.ok) {
+      out.httpError = `HTTP ${r.status}`;
+      out.httpBody = (await r.text().catch(() => '')).slice(0, 200);
+      return out;
+    }
+    const data = await r.json();
+    out.models = (data.data || []).map(m => m.id || m.name).filter(Boolean);
+  } catch (e) {
+    out.corsOk = false;
+    out.corsError = e.message;
+  }
+  return out;
+}
+
+async function testConnection() {
+  const result = document.getElementById('cfg-test-result');
+  result.className = 'test-result';
+  result.style.display = 'block';
+  result.style.background = 'var(--bg-input)';
+  result.style.color = 'var(--text-dim)';
+  result.innerHTML = '🔄 diagnosing…';
+
+  const endpoint = document.getElementById('cfg-endpoint').value.trim().replace(/\/$/, '');
+  const diag = await diagnoseEndpoint(endpoint);
+
+  if (!diag.reachable) {
+    result.className = 'test-result bad';
+    result.innerHTML = `
+      <strong>✗ No server reachable at <code>${escapeHtml(endpoint)}</code></strong>
+      <div style="margin-top:8px;font-size:11px;line-height:1.7">
+        Open <strong>LM Studio</strong> → click the <strong>Developer</strong> icon (terminal symbol) in the left sidebar
+        → toggle the green <strong>Status: Running</strong> switch ON.<br>
+        Check the port shown there matches your endpoint above (default <code>1234</code>).
+      </div>`;
+    return;
+  }
+
+  if (!diag.corsOk) {
+    result.className = 'test-result bad';
+    result.innerHTML = `
+      <strong>⚠ Server is up but CORS is blocking us</strong>
+      <div style="margin-top:8px;font-size:11px;line-height:1.7">
+        This is the most common issue. In <strong>LM Studio</strong>:
+        <ol style="margin:6px 0 0 20px;padding:0">
+          <li>Click <strong>Developer</strong> in the left sidebar</li>
+          <li>Click <strong>Settings</strong> (top of the developer panel)</li>
+          <li>Turn ON <strong>Enable CORS</strong> (a.k.a. <em>Cross-Origin-Resource-Sharing</em>)</li>
+          <li>Toggle the server <strong>OFF then ON</strong> to apply</li>
+          <li>Click Test Connection again 🐱</li>
+        </ol>
+      </div>`;
+    return;
+  }
+
+  if (diag.httpError) {
+    result.className = 'test-result bad';
+    result.innerHTML = `<strong>✗ ${escapeHtml(diag.httpError)}</strong>
+      <div style="margin-top:6px;font-size:11px;opacity:0.85">
+        Endpoint reached but returned an error. Make sure the URL ends in <code>/v1</code> (e.g. <code>http://localhost:1234/v1</code>).
+        ${diag.httpBody ? `<br>Response: <code>${escapeHtml(diag.httpBody)}</code>` : ''}
+      </div>`;
+    return;
+  }
+
+  if (!diag.models || diag.models.length === 0) {
+    result.className = 'test-result bad';
+    result.innerHTML = `<strong>⚠ Connected but no models loaded</strong>
+      <div style="margin-top:6px;font-size:11px">In LM Studio, click the model selector at the top and <strong>Load</strong> a model.</div>`;
+    return;
+  }
+
+  result.className = 'test-result ok';
+  result.innerHTML = `<strong>✓ All systems purring</strong> — ${diag.models.length} model${diag.models.length === 1 ? '' : 's'} loaded.`;
+  populateModelSelect(diag.models, state.settings.model || diag.models[0]);
+}
+
+function saveSettings() {
+  state.settings.endpoint = document.getElementById('cfg-endpoint').value.trim() || DEFAULTS.endpoint;
+  state.settings.model = document.getElementById('cfg-model').value;
+  state.settings.temperature = parseFloat(document.getElementById('cfg-temp').value) || DEFAULTS.temperature;
+  state.settings.maxTokens = parseInt(document.getElementById('cfg-max').value) || DEFAULTS.maxTokens;
+  state.settings.systemPrompt = document.getElementById('cfg-sysprompt').value.trim() || DEFAULT_SYSPROMPT;
+  saveToDisk();
+  updateCacheMeta();
+  closeModal('settings-modal');
+  setStatus('✓ settings saved');
+  // Re-check connection
+  silentConnectionCheck();
+}
+
+function resetDefaults() {
+  if (!confirm('Reset all LM Studio settings to defaults?')) return;
+  document.getElementById('cfg-endpoint').value = DEFAULTS.endpoint;
+  document.getElementById('cfg-temp').value = DEFAULTS.temperature;
+  document.getElementById('cfg-max').value = DEFAULTS.maxTokens;
+  document.getElementById('cfg-sysprompt').value = DEFAULTS.systemPrompt;
+  populateModelSelect([], '');
+}
+
+function clearCache() {
+  state.pageCache = {};
+  updateCacheMeta();
+  setStatus('🗑 cache cleared');
+}
+
+/* ===== History modal ===== */
+function openHistory() {
+  const list = document.getElementById('history-list');
+  list.innerHTML = '';
+  if (state.history.length === 0) {
+    list.innerHTML = '<div class="list-empty">no pages visited yet — type a URL above</div>';
+  } else {
+    // Show most recent first
+    [...state.history].reverse().forEach((entry, idx) => {
+      const item = document.createElement('div');
+      item.className = 'list-item';
+      item.innerHTML = `
+        <span class="icon">🐾</span>
+        <div class="content">
+          <div class="title">${escapeHtml(entry.title || entry.url)}</div>
+          <div class="meta">${escapeHtml(entry.url)} · ${formatTime(entry.ts)}</div>
+        </div>
+        <div class="actions">
+          <button data-action="bookmark" title="Bookmark">⭐</button>
+        </div>
+      `;
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('[data-action]')) return;
+        closeModal('history-modal');
+        navigate(entry.url);
+      });
+      item.querySelector('[data-action="bookmark"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        addBookmark(entry.url, entry.title);
+        setStatus('⭐ bookmarked');
+      });
+      list.appendChild(item);
+    });
+  }
+  openModal('history-modal');
+}
+
+function clearHistory() {
+  if (!confirm('Clear all browsing history?')) return;
+  state.history = [];
+  state.historyIndex = -1;
+  updateNavButtons();
+  saveToDisk();
+  closeModal('history-modal');
+  setStatus('🗑 history cleared');
+}
+
+/* ===== Bookmarks ===== */
+function openBookmarks() {
+  const list = document.getElementById('bookmarks-list');
+  list.innerHTML = '';
+  if (state.bookmarks.length === 0) {
+    list.innerHTML = '<div class="list-empty">no bookmarks yet — click ＋ in the header to save the current page</div>';
+  } else {
+    state.bookmarks.forEach((entry, idx) => {
+      const item = document.createElement('div');
+      item.className = 'list-item';
+      item.innerHTML = `
+        <span class="icon">⭐</span>
+        <div class="content">
+          <div class="title">${escapeHtml(entry.title || entry.url)}</div>
+          <div class="meta">${escapeHtml(entry.url)}</div>
+        </div>
+        <div class="actions">
+          <button data-action="remove" title="Remove">✕</button>
+        </div>
+      `;
+      item.addEventListener('click', (e) => {
+        if (e.target.closest('[data-action]')) return;
+        closeModal('bookmarks-modal');
+        navigate(entry.url);
+      });
+      item.querySelector('[data-action="remove"]').addEventListener('click', (e) => {
+        e.stopPropagation();
+        state.bookmarks.splice(idx, 1);
+        saveToDisk();
+        openBookmarks();
+      });
+      list.appendChild(item);
+    });
+  }
+  openModal('bookmarks-modal');
+}
+
+function addBookmark(url, title) {
+  if (state.bookmarks.some(b => b.url === url)) return;
+  state.bookmarks.push({ url, title: title || url, ts: Date.now() });
+  saveToDisk();
+}
+
+function bookmarkCurrent() {
+  if (state.historyIndex < 0) {
+    setStatus('🙀 no page to bookmark');
+    return;
+  }
+  const entry = state.history[state.historyIndex];
+  if (state.bookmarks.some(b => b.url === entry.url)) {
+    setStatus('⭐ already bookmarked');
+    return;
+  }
+  addBookmark(entry.url, entry.title);
+  setStatus(`⭐ bookmarked ${entry.title || entry.url}`);
+}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
+}
+
+function formatTime(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return 'just now';
+  if (diff < 3600) return `${Math.floor(diff/60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff/3600)}h ago`;
+  return d.toLocaleDateString();
+}
+
+async function silentConnectionCheck() {
+  const w = document.getElementById('welcome-conn-status');
+  const proxyBadge = isProxyMode()
+    ? '<span style="color:var(--accent-mint)">🐾 proxy mode</span> · '
+    : '<span style="color:var(--accent-warm)">⚠ direct mode (file://)</span> · ';
+
+  console.log('[catsim] mode:', isProxyMode() ? 'PROXY (same-origin)' : 'DIRECT (file://, CORS-dependent)');
+  console.log('[catsim] checking connection to', state.settings.endpoint);
+  const diag = await diagnoseEndpoint(state.settings.endpoint);
+  console.log('[catsim] diagnostic:', diag);
+
+  if (!diag.reachable) {
+    setConnIndicator('bad');
+    if (w) {
+      if (isProxyMode()) {
+        w.innerHTML = `${proxyBadge}<span style="color:var(--error)">✗ proxy unreachable</span> — is catserver.py running?`;
+      } else {
+        w.innerHTML = `${proxyBadge}<span style="color:var(--error)">✗ no LM Studio at ${escapeHtml(state.settings.endpoint)}</span>`;
+      }
+    }
+    return;
+  }
+  if (!diag.corsOk) {
+    setConnIndicator('bad');
+    if (w) w.innerHTML = `${proxyBadge}<span style="color:var(--accent-warm)">⚠ CORS blocked</span> — run <code>python3 catserver.py</code> for the bulletproof fix`;
+    return;
+  }
+  if (!diag.models || diag.models.length === 0) {
+    setConnIndicator('bad');
+    if (w) w.innerHTML = `${proxyBadge}<span style="color:var(--accent-warm)">⚠ no models loaded</span> — load a model in LM Studio`;
+    return;
+  }
+  setConnIndicator('ok');
+  if (!state.settings.model) {
+    state.settings.model = diag.models[0];
+    saveToDisk();
+  }
+  updateCacheMeta();
+  if (w) w.innerHTML = `${proxyBadge}<span style="color:var(--accent-mint)">✓ connected</span> · ${escapeHtml(state.settings.model)} · ${diag.models.length} models`;
+}
+
+/* ============================================================
+   EVENT WIRING
+   ============================================================ */
+
+function init() {
+  loadFromDisk();
+  updateCacheMeta();
+
+  // Welcome page suggestion clicks
+  document.querySelectorAll('.suggestion-card').forEach(card => {
+    card.addEventListener('click', () => navigate(card.dataset.url));
+  });
+
+  // URL bar
+  document.getElementById('url-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      handleGoOrStop();
+    }
+  });
+  document.getElementById('go-btn').addEventListener('click', handleGoOrStop);
+
+  // Nav buttons
+  document.getElementById('back-btn').addEventListener('click', goBack);
+  document.getElementById('forward-btn').addEventListener('click', goForward);
+  document.getElementById('refresh-btn').addEventListener('click', refresh);
+  document.getElementById('home-btn').addEventListener('click', goHome);
+
+  // Header buttons
+  document.getElementById('settings-btn').addEventListener('click', openSettings);
+  document.getElementById('history-btn').addEventListener('click', openHistory);
+  document.getElementById('bookmarks-btn').addEventListener('click', openBookmarks);
+  document.getElementById('bookmark-add').addEventListener('click', bookmarkCurrent);
+
+  // Modal close handlers
+  document.querySelectorAll('[data-close]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      btn.closest('.modal-backdrop').classList.add('hidden');
+    });
+  });
+  document.querySelectorAll('.modal-backdrop').forEach(bd => {
+    bd.addEventListener('click', (e) => {
+      if (e.target === bd) bd.classList.add('hidden');
+    });
+  });
+
+  // Settings modal actions
+  document.getElementById('cfg-test').addEventListener('click', testConnection);
+  document.getElementById('cfg-save').addEventListener('click', saveSettings);
+  document.getElementById('cfg-reset').addEventListener('click', resetDefaults);
+  document.getElementById('cfg-clear-cache').addEventListener('click', clearCache);
+
+  // History modal
+  document.getElementById('history-clear').addEventListener('click', clearHistory);
+
+  // Error overlay actions
+  document.getElementById('error-settings').addEventListener('click', openSettings);
+  document.getElementById('error-retry').addEventListener('click', () => {
+    if (state.historyIndex >= 0) refresh();
+    else {
+      const url = document.getElementById('url-input').value.trim();
+      if (url) navigate(url);
+    }
+  });
+
+  // Listen for navigation messages from inside iframes
+  window.addEventListener('message', (e) => {
+    if (!e.data || e.data.type !== 'catsim:navigate') return;
+    const currentUrl = state.historyIndex >= 0 ? state.history[state.historyIndex].url : '';
+    const resolved = resolveLink(e.data.href, currentUrl);
+    navigate(resolved);
+  });
+
+  // Keyboard shortcuts
+  document.addEventListener('keydown', (e) => {
+    // Cmd/Ctrl+L → focus URL bar
+    if ((e.metaKey || e.ctrlKey) && e.key === 'l') {
+      e.preventDefault();
+      document.getElementById('url-input').focus();
+      document.getElementById('url-input').select();
+    }
+    // Cmd/Ctrl+R → refresh
+    if ((e.metaKey || e.ctrlKey) && e.key === 'r' && state.historyIndex >= 0) {
+      e.preventDefault();
+      refresh();
+    }
+    // Alt+Left/Right → back/forward
+    if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); goBack(); }
+    if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); goForward(); }
+    // Escape → close modals or stop generation
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-backdrop').forEach(bd => bd.classList.add('hidden'));
+      if (state.isGenerating && state.abortController) {
+        state.abortController.abort();
+        setGenerating(false);
+        setStatus('🙊 cancelled');
+        hideOverlays();
+        document.getElementById('welcome-overlay').classList.remove('hidden');
+      }
+    }
+  });
+
+  // Initial connection check
+  silentConnectionCheck();
+}
+
+function handleGoOrStop() {
+  if (state.isGenerating) {
+    if (state.abortController) state.abortController.abort();
+    setGenerating(false);
+    setStatus('🙊 cancelled');
+    hideOverlays();
+    if (state.historyIndex < 0) {
+      document.getElementById('welcome-overlay').classList.remove('hidden');
+    }
+    return;
+  }
+  const url = document.getElementById('url-input').value.trim();
+  if (url) navigate(url);
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
